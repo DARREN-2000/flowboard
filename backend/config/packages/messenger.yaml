@@ -1,0 +1,9 @@
+framework:
+    messenger:
+        transports:
+            async: '%env(MESSENGER_TRANSPORT_DSN)%'
+        routing:
+            'App\Message\GenerateTasksMessage': async
+            'App\Message\DecomposeTaskMessage': async
+            'App\Message\GenerateSummaryMessage': async
+            'App\Message\SearchTasksMessage': async

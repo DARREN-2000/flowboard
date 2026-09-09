@@ -1,0 +1,186 @@
+version: '3.8'
+
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL Database
+  # ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: flowboard-postgres
+    environment:
+      POSTGRES_DB: flowboard
+      POSTGRES_USER: flowboard
+      POSTGRES_PASSWORD: flowboard_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowboard
+
+  # ──────────────────────────────────────────────
+  # Redis (Cache + Message Queue)
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: flowboard-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flowboard
+
+  # ──────────────────────────────────────────────
+  # Mercure Hub (Real-time SSE)
+  # ──────────────────────────────────────────────
+  mercure:
+    image: dunglas/mercure
+    container_name: flowboard-mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ':80'
+      MERCURE_PUBLISHER_JWT_KEY: '!ChangeThisMercureHubJWTSecretKey!'
+      MERCURE_SUBSCRIBER_JWT_KEY: '!ChangeThisMercureHubJWTSecretKey!'
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins http://localhost:5173
+        anonymous
+    ports:
+      - "9090:80"
+    networks:
+      - flowboard
+
+  # ──────────────────────────────────────────────
+  # Symfony Backend (PHP 8.3)
+  # ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: docker/php/Dockerfile
+    container_name: flowboard-backend
+    environment:
+      APP_ENV: dev
+      APP_SECRET: '${APP_SECRET:-change_me_in_production}'
+      DATABASE_URL: 'postgresql://flowboard:flowboard_secret@postgres:5432/flowboard?serverVersion=16&charset=utf8'
+      REDIS_URL: 'redis://redis:6379'
+      MERCURE_URL: 'http://mercure/.well-known/mercure'
+      MERCURE_PUBLIC_URL: 'http://localhost:9090/.well-known/mercure'
+      MERCURE_JWT_SECRET: '!ChangeThisMercureHubJWTSecretKey!'
+      MESSENGER_TRANSPORT_DSN: 'redis://redis:6379/messages'
+      AI_SERVICE_URL: 'http://ai-service:8000'
+      JWT_SECRET_KEY: '%kernel.project_dir%/config/jwt/private.pem'
+      JWT_PUBLIC_KEY: '%kernel.project_dir%/config/jwt/public.pem'
+      JWT_PASSPHRASE: 'flowboard'
+      CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    ports:
+      - "8080:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - flowboard
+
+  # ──────────────────────────────────────────────
+  # Symfony Messenger Worker (Async Jobs)
+  # ──────────────────────────────────────────────
+  messenger-worker:
+    build:
+      context: ./backend
+      dockerfile: docker/php/Dockerfile
+    container_name: flowboard-messenger
+    command: php bin/console messenger:consume async -vv
+    environment:
+      APP_ENV: dev
+      APP_SECRET: '${APP_SECRET:-change_me_in_production}'
+      DATABASE_URL: 'postgresql://flowboard:flowboard_secret@postgres:5432/flowboard?serverVersion=16&charset=utf8'
+      REDIS_URL: 'redis://redis:6379'
+      MERCURE_URL: 'http://mercure/.well-known/mercure'
+      MERCURE_PUBLIC_URL: 'http://localhost:9090/.well-known/mercure'
+      MERCURE_JWT_SECRET: '!ChangeThisMercureHubJWTSecretKey!'
+      MESSENGER_TRANSPORT_DSN: 'redis://redis:6379/messages'
+      AI_SERVICE_URL: 'http://ai-service:8000'
+      JWT_SECRET_KEY: '%kernel.project_dir%/config/jwt/private.pem'
+      JWT_PUBLIC_KEY: '%kernel.project_dir%/config/jwt/public.pem'
+      JWT_PASSPHRASE: 'flowboard'
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - flowboard
+
+  # ──────────────────────────────────────────────
+  # React Frontend
+  # ──────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: flowboard-frontend
+    environment:
+      VITE_API_URL: 'http://localhost:8080'
+      VITE_MERCURE_URL: 'http://localhost:9090/.well-known/mercure'
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - flowboard
+
+  # ──────────────────────────────────────────────
+  # Python AI Service
+  # ──────────────────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: flowboard-ai
+    environment:
+      OPENAI_API_KEY: '${OPENAI_API_KEY:-}'
+      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
+      DATABASE_URL: 'postgresql://flowboard:flowboard_secret@postgres:5432/flowboard'
+      REDIS_URL: 'redis://redis:6379'
+      LOG_LEVEL: 'info'
+    volumes:
+      - ./ai-service:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - flowboard
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_vendor:
+  frontend_node_modules:
+
+networks:
+  flowboard:
+    driver: bridge

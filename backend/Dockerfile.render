@@ -1,10 +1,10 @@
 # ──────────────────────────────────────────────
 # FlowBoard Backend — Render Production Dockerfile
 # ──────────────────────────────────────────────
-# Uses PHP built-in server behind Caddy for production.
+# Uses PHP-FPM behind Caddy for production.
 # Render requires a single process listening on $PORT.
 # ──────────────────────────────────────────────
-FROM php:8.3-cli-alpine
+FROM php:8.3-fpm-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
@@ -56,22 +56,23 @@ RUN openssl genpkey -out config/jwt/private.pem -aes256 -algorithm rsa \
 # Clear and warm cache
 RUN APP_ENV=prod php bin/console cache:clear --no-warmup 2>/dev/null || true
 
-# Create Caddyfile for production reverse proxy
-RUN echo ':${PORT:-10000}' > /etc/caddy/Caddyfile \
-    && echo '' >> /etc/caddy/Caddyfile \
-    && echo 'root * /var/www/html/public' >> /etc/caddy/Caddyfile \
-    && echo 'php_fastcgi unix//tmp/php-fpm.sock' >> /etc/caddy/Caddyfile \
-    && echo 'file_server' >> /etc/caddy/Caddyfile \
-    && echo 'encode gzip' >> /etc/caddy/Caddyfile \
-    && echo 'header {' >> /etc/caddy/Caddyfile \
-    && echo '    X-Content-Type-Options nosniff' >> /etc/caddy/Caddyfile \
-    && echo '    X-Frame-Options DENY' >> /etc/caddy/Caddyfile \
-    && echo '    -Server' >> /etc/caddy/Caddyfile \
-    && echo '}' >> /etc/caddy/Caddyfile
-
-# Create startup script
+# Create startup script that generates Caddyfile dynamically to use Render's PORT
 RUN echo '#!/bin/sh' > /start.sh \
     && echo 'set -e' >> /start.sh \
+    && echo '' >> /start.sh \
+    && echo 'cat <<EOF > /etc/caddy/Caddyfile' >> /start.sh \
+    && echo ':${PORT:-10000} {' >> /start.sh \
+    && echo '    root * /var/www/html/public' >> /start.sh \
+    && echo '    php_fastcgi 127.0.0.1:9000' >> /start.sh \
+    && echo '    file_server' >> /start.sh \
+    && echo '    encode gzip' >> /start.sh \
+    && echo '    header {' >> /start.sh \
+    && echo '        X-Content-Type-Options nosniff' >> /start.sh \
+    && echo '        X-Frame-Options DENY' >> /start.sh \
+    && echo '        -Server' >> /start.sh \
+    && echo '    }' >> /start.sh \
+    && echo '}' >> /start.sh \
+    && echo 'EOF' >> /start.sh \
     && echo '' >> /start.sh \
     && echo '# Run migrations' >> /start.sh \
     && echo 'php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration 2>/dev/null || true' >> /start.sh \
@@ -79,8 +80,11 @@ RUN echo '#!/bin/sh' > /start.sh \
     && echo '# Warm up cache' >> /start.sh \
     && echo 'php bin/console cache:warmup 2>/dev/null || true' >> /start.sh \
     && echo '' >> /start.sh \
-    && echo '# Start PHP built-in server' >> /start.sh \
-    && echo 'exec php -S 0.0.0.0:${PORT:-10000} -t public/' >> /start.sh \
+    && echo '# Start PHP-FPM in background' >> /start.sh \
+    && echo 'php-fpm -D' >> /start.sh \
+    && echo '' >> /start.sh \
+    && echo '# Start Caddy in foreground' >> /start.sh \
+    && echo 'exec caddy run --config /etc/caddy/Caddyfile' >> /start.sh \
     && chmod +x /start.sh
 
 # Health check endpoint

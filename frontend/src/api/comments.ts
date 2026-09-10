@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import apiClient from './client';
 
 export interface Comment {
   id: string;
@@ -16,10 +16,10 @@ export interface CreateCommentPayload {
 
 export const commentsApi = {
   getTaskComments: (taskId: string): Promise<Comment[]> =>
-    apiClient.get(`/tasks/${taskId}/comments`).then((r) => r.data),
+    apiClient.get(`/tasks/${taskId}/comments`).then((r: any) => r.data),
 
   createComment: (taskId: string, data: CreateCommentPayload): Promise<Comment> =>
-    apiClient.post(`/tasks/${taskId}/comments`, data).then((r) => r.data),
+    apiClient.post(`/tasks/${taskId}/comments`, data).then((r: any) => r.data),
 
   deleteComment: (commentId: string): Promise<void> =>
     apiClient.delete(`/comments/${commentId}`),

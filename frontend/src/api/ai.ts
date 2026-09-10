@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import apiClient from './client';
 
 export interface AiGenerateTasksPayload {
   description: string;
@@ -53,25 +53,25 @@ export const aiApi = {
   generateTasks: (projectId: string, data: AiGenerateTasksPayload): Promise<AiSuggestion> =>
     apiClient
       .post(`/projects/${projectId}/ai/generate-tasks`, data)
-      .then((r) => r.data),
+      .then((r: any) => r.data),
 
   decomposeTask: (taskId: string, data?: AiDecomposePayload): Promise<AiSuggestion> =>
     apiClient
       .post(`/tasks/${taskId}/ai/decompose`, data ?? {})
-      .then((r) => r.data),
+      .then((r: any) => r.data),
 
   getProjectSummary: (projectId: string): Promise<AiSuggestion> =>
     apiClient
       .post(`/projects/${projectId}/ai/summary`)
-      .then((r) => r.data),
+      .then((r: any) => r.data),
 
   searchTasks: (projectId: string, data: AiSearchPayload): Promise<AiSuggestion> =>
     apiClient
       .post(`/projects/${projectId}/ai/search`, data)
-      .then((r) => r.data),
+      .then((r: any) => r.data),
 
   getSuggestion: (suggestionId: string): Promise<AiSuggestion> =>
-    apiClient.get(`/ai-suggestions/${suggestionId}`).then((r) => r.data),
+    apiClient.get(`/ai-suggestions/${suggestionId}`).then((r: any) => r.data),
 
   acceptSuggestion: (suggestionId: string, selectedIndexes?: number[]): Promise<void> =>
     apiClient.post(`/ai-suggestions/${suggestionId}/accept`, { selectedIndexes }),

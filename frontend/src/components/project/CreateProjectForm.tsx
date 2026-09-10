@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import TextArea from '../ui/TextArea';
-import Modal from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { TextArea } from '../ui/TextArea';
+import { Modal } from '../ui/Modal';
 import { FolderPlus } from 'lucide-react';
 
 interface CreateProjectFormProps {
@@ -51,7 +51,7 @@ export default function CreateProjectForm({ isOpen, onClose, onSubmit, isCreatin
           label="Project Name"
           placeholder="e.g., Q4 Sensor Reliability"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e: any) => setName(e.target.value)}
           error={errors.name}
           autoFocus
         />
@@ -60,7 +60,7 @@ export default function CreateProjectForm({ isOpen, onClose, onSubmit, isCreatin
           label="Description"
           placeholder="Describe the project goals and scope..."
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e: any) => setDescription(e.target.value)}
           error={errors.description}
           rows={3}
         />

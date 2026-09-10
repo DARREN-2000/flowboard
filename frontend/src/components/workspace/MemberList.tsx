@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import Avatar from '../ui/Avatar';
-import Badge from '../ui/Badge';
-import Button from '../ui/Button';
+import { Avatar } from '../ui/Avatar';
+import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Trash2, Shield, ShieldCheck, Eye, Crown } from 'lucide-react';
 
@@ -47,14 +47,14 @@ export default function MemberList({ members, currentUserRole, onRemoveMember, i
           return (
             <div key={member.id} className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">
-                <Avatar name={member.fullName} size="sm" />
+                <Avatar user={{ name: member.fullName, id: member.userId, email: member.email }} size="sm" />
                 <div>
                   <p className="text-sm font-medium text-slate-900">{member.fullName}</p>
                   <p className="text-xs text-slate-500">{member.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={roleBadgeColors[member.role] ?? 'default'}>
+                <Badge variant="default" value={member.role}>
                   <RoleIcon className="mr-1 h-3 w-3" />
                   {member.role}
                 </Badge>
@@ -86,8 +86,8 @@ export default function MemberList({ members, currentUserRole, onRemoveMember, i
         }}
         title="Remove Member"
         message="Are you sure you want to remove this member from the workspace? They will lose access to all projects."
-        confirmLabel="Remove"
-        variant="danger"
+        confirmText="Remove"
+        
       />
     </>
   );

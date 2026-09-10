@@ -9,6 +9,9 @@ export interface Workspace {
   id: string;
   name: string;
   slug: string;
+  description?: string;
+  projectCount?: number;
+  memberCount?: number;
   ownerId: string;
   members: WorkspaceMember[];
   createdAt: string;

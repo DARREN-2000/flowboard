@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
-import Badge from '../ui/Badge';
+import { Badge } from '../ui/Badge';
 import { CheckCircle2, Circle, Clock, ListTodo } from 'lucide-react';
 
 interface ProjectCardProps {
@@ -37,7 +37,7 @@ export default function ProjectCard({ project, workspaceSlug, className }: Proje
         <h3 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">
           {project.name}
         </h3>
-        <Badge variant={progress === 100 ? 'success' : progress > 0 ? 'primary' : 'default'}>
+        <Badge variant="default" value={`${progress}%`}>
           {progress}%
         </Badge>
       </div>

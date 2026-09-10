@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import Button from '../ui/Button';
-import Input from '../ui/Input';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import Select from '../ui/Select';
 import { UserPlus } from 'lucide-react';
 
@@ -45,7 +45,7 @@ export default function InviteMemberForm({ onInvite, isInviting }: InviteMemberF
           type="email"
           placeholder="colleague@example.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e: any) => setEmail(e.target.value)}
           error={error}
         />
       </div>

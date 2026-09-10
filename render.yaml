@@ -61,7 +61,7 @@ services:
       - key: JWT_PASSPHRASE
         generateValue: true
       - key: CORS_ALLOW_ORIGIN
-        value: "^https://flowboard-frontend\\.onrender\\.com$"
+        value: "^https://.*\\.onrender\\.com$"
       # Mercure disabled on free tier — uses polling fallback
       - key: MERCURE_URL
         value: ""

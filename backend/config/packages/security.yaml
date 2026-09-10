@@ -21,10 +21,15 @@ security:
             pattern: ^/api/auth/register
             stateless: true
             security: false
+        health:
+            pattern: ^/api/health
+            stateless: true
+            security: false
         api:
             pattern: ^/api
             stateless: true
             jwt: ~
     access_control:
+        - { path: ^/api/health, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

@@ -5,6 +5,7 @@
 ### Real-Time AI Project Workspace
 
 [![CI/CD](https://github.com/yourusername/flowboard/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/flowboard/actions)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
 [![PHP 8.3](https://img.shields.io/badge/PHP-8.3-777BB4?logo=php&logoColor=white)](https://php.net)
 [![Symfony 7](https://img.shields.io/badge/Symfony-7.x-000000?logo=symfony)](https://symfony.com)
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
@@ -14,7 +15,7 @@
 
 A polished, production-grade collaborative project management application where teams manage workspaces, projects, and tasks in real time — with AI-assisted task generation, decomposition, and project summaries.
 
-[**Live Demo**](https://flowboard.vercel.app) · [**API Docs**](#api-documentation) · [**Architecture**](#architecture)
+[**Live Demo**](https://flowboard-frontend.onrender.com) · [**API Docs**](#api-documentation) · [**Architecture**](#architecture)
 
 </div>
 
@@ -239,15 +240,36 @@ docker compose exec ai-service pytest tests/ -v
 
 ---
 
-## 🚢 Deployment
+## 🚢 Deployment (Render)
 
-| Service | Platform | URL |
-|---------|----------|-----|
-| Frontend | Vercel | `flowboard.vercel.app` |
-| Backend | Railway / Fly.io | `api.flowboard.app` |
-| AI Service | Railway / Fly.io | `ai.flowboard.app` |
-| Database | Managed PostgreSQL | — |
-| Cache | Managed Redis | — |
+### One-Click Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+This will create all 5 services from `render.yaml`:
+
+| Service | Type | URL |
+|---------|------|-----|
+| `flowboard-frontend` | Static Site | `flowboard-frontend.onrender.com` |
+| `flowboard-backend` | Docker (PHP 8.3) | `flowboard-backend.onrender.com` |
+| `flowboard-ai` | Docker (Python) | `flowboard-ai.onrender.com` |
+| `flowboard-db` | PostgreSQL | Managed |
+| `flowboard-redis` | Redis | Managed |
+
+### Manual Deploy
+
+1. Push to GitHub: `git remote add origin <url> && git push -u origin master`
+2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+3. Connect your GitHub repo → Render reads `render.yaml` automatically
+4. All services, databases, and env vars are created for you
+5. Optionally set `OPENAI_API_KEY` in the AI service for real LLM responses (mock mode works without it)
+
+### Free Tier Notes
+
+- Services spin down after 15 min of inactivity (~50s cold start)
+- Mercure is disabled — frontend uses polling fallback
+- Messenger runs synchronously (no separate worker process)
+- AI mock mode enabled by default — works without API keys
 
 ---
 

@@ -1,0 +1,92 @@
+# ──────────────────────────────────────────────
+# FlowBoard Backend — Render Production Dockerfile
+# ──────────────────────────────────────────────
+# Uses PHP built-in server behind Caddy for production.
+# Render requires a single process listening on $PORT.
+# ──────────────────────────────────────────────
+FROM php:8.3-cli-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    postgresql-dev \
+    git \
+    unzip \
+    libzip-dev \
+    icu-dev \
+    openssl \
+    caddy
+
+# Install PHP extensions
+RUN docker-php-ext-configure intl \
+    && docker-php-ext-install pdo_pgsql intl zip opcache
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# PHP production settings
+RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.memory_consumption=128" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.max_accelerated_files=10000" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "realpath_cache_size=4096K" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "realpath_cache_ttl=600" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/app.ini \
+    && echo "expose_php=Off" >> /usr/local/etc/php/conf.d/app.ini
+
+WORKDIR /var/www/html
+
+# Copy application code
+COPY composer.json composer.lock* ./
+RUN composer install --prefer-dist --no-progress --no-interaction --no-dev --optimize-autoloader --no-scripts
+
+COPY . .
+RUN composer dump-autoload --optimize --no-dev
+
+# Create required directories
+RUN mkdir -p var/cache var/log config/jwt \
+    && chown -R www-data:www-data var config/jwt
+
+# Generate JWT keys at build time
+RUN openssl genpkey -out config/jwt/private.pem -aes256 -algorithm rsa \
+        -pkeyopt rsa_keygen_bits:4096 -pass pass:${JWT_PASSPHRASE:-flowboard} \
+    && openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem \
+        -pubout -passin pass:${JWT_PASSPHRASE:-flowboard} \
+    && chown -R www-data:www-data config/jwt
+
+# Clear and warm cache
+RUN APP_ENV=prod php bin/console cache:clear --no-warmup 2>/dev/null || true
+
+# Create Caddyfile for production reverse proxy
+RUN echo ':${PORT:-10000}' > /etc/caddy/Caddyfile \
+    && echo '' >> /etc/caddy/Caddyfile \
+    && echo 'root * /var/www/html/public' >> /etc/caddy/Caddyfile \
+    && echo 'php_fastcgi unix//tmp/php-fpm.sock' >> /etc/caddy/Caddyfile \
+    && echo 'file_server' >> /etc/caddy/Caddyfile \
+    && echo 'encode gzip' >> /etc/caddy/Caddyfile \
+    && echo 'header {' >> /etc/caddy/Caddyfile \
+    && echo '    X-Content-Type-Options nosniff' >> /etc/caddy/Caddyfile \
+    && echo '    X-Frame-Options DENY' >> /etc/caddy/Caddyfile \
+    && echo '    -Server' >> /etc/caddy/Caddyfile \
+    && echo '}' >> /etc/caddy/Caddyfile
+
+# Create startup script
+RUN echo '#!/bin/sh' > /start.sh \
+    && echo 'set -e' >> /start.sh \
+    && echo '' >> /start.sh \
+    && echo '# Run migrations' >> /start.sh \
+    && echo 'php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration 2>/dev/null || true' >> /start.sh \
+    && echo '' >> /start.sh \
+    && echo '# Warm up cache' >> /start.sh \
+    && echo 'php bin/console cache:warmup 2>/dev/null || true' >> /start.sh \
+    && echo '' >> /start.sh \
+    && echo '# Start PHP built-in server' >> /start.sh \
+    && echo 'exec php -S 0.0.0.0:${PORT:-10000} -t public/' >> /start.sh \
+    && chmod +x /start.sh
+
+# Health check endpoint
+RUN mkdir -p public \
+    && echo '<?php echo json_encode(["status" => "ok", "service" => "flowboard-backend", "time" => date("c")]);' > public/health.php
+
+EXPOSE 10000
+
+CMD ["/start.sh"]

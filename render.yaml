@@ -1,0 +1,145 @@
+# ──────────────────────────────────────────────
+# FlowBoard — Render Blueprint (render.yaml)
+# ──────────────────────────────────────────────
+# Deploy with one click: https://render.com/deploy
+#
+# Architecture on Render free tier:
+#   - flowboard-backend:     PHP 8.3 web service (Docker)
+#   - flowboard-ai:          Python FastAPI web service (Docker)
+#   - flowboard-frontend:    React SPA (static site)
+#   - flowboard-db:          PostgreSQL database
+#   - flowboard-redis:       Redis for messenger + caching
+#
+# Free-tier notes:
+#   - Services spin down after 15 min inactivity (~50s cold start)
+#   - 512 MB RAM per service, 750 free hours/month
+#   - Mercure hub is NOT deployed (uses polling fallback)
+#   - Messenger worker runs inline (sync transport) to stay on free tier
+# ──────────────────────────────────────────────
+
+services:
+  # ─────────────────────────────────────────
+  # Redis — Caching & Message Queue
+  # ─────────────────────────────────────────
+  - type: redis
+    name: flowboard-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+  # ─────────────────────────────────────────
+  # Symfony PHP Backend (API)
+  # ─────────────────────────────────────────
+  - type: web
+    name: flowboard-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile.render
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: prod
+      - key: APP_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flowboard-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: flowboard-redis
+          property: connectionString
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: flowboard-ai
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: JWT_PASSPHRASE
+        generateValue: true
+      - key: CORS_ALLOW_ORIGIN
+        value: "^https://flowboard-frontend\\.onrender\\.com$"
+      # Mercure disabled on free tier — uses polling fallback
+      - key: MERCURE_URL
+        value: ""
+      - key: MERCURE_PUBLIC_URL
+        value: ""
+      - key: MERCURE_JWT_SECRET
+        value: "disabled"
+      # Use sync messenger on free tier (no separate worker process)
+      - key: MESSENGER_TRANSPORT_DSN
+        value: "sync://"
+
+  # ─────────────────────────────────────────
+  # Python AI Service (FastAPI)
+  # ─────────────────────────────────────────
+  - type: web
+    name: flowboard-ai
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: ./ai-service
+    dockerfilePath: ./ai-service/Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flowboard-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: flowboard-redis
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: USE_MOCK_LLM
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # ─────────────────────────────────────────
+  # React Frontend (Static Site)
+  # ─────────────────────────────────────────
+  - type: web
+    name: flowboard-frontend
+    env: static
+    plan: free
+    region: frankfurt
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: flowboard-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_MERCURE_URL
+        value: ""
+
+databases:
+  # ─────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────
+  - name: flowboard-db
+    plan: free
+    databaseName: flowboard
+    user: flowboard_user
+    region: frankfurt

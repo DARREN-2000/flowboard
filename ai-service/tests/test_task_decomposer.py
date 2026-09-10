@@ -1,8 +1,8 @@
 import pytest
 from app.models.responses import DecomposeTaskResponse
 
-@pytest.mark.asyncio
-async def test_decompose_task_mock_mode(client):
+
+def test_decompose_task_mock_mode(client):
     response = client.post("/ai/decompose-task", json={
         "title": "Implement search",
         "description": "Add full text search to the product catalog",
@@ -13,8 +13,20 @@ async def test_decompose_task_mock_mode(client):
     assert "subtasks" in data
     assert len(data["subtasks"]) > 0
 
-@pytest.mark.asyncio
-async def test_decompose_task_with_mocked_llm(client, mock_llm_generate):
+
+def test_decompose_task_returns_valid_structure(client):
+    response = client.post("/ai/decompose-task", json={
+        "title": "Build environmental test pipeline",
+        "description": "Complete pipeline for testing sensors in cold environments"
+    })
+    assert response.status_code == 200
+    data = response.json()
+    for subtask in data["subtasks"]:
+        assert "title" in subtask
+        assert "description" in subtask
+
+
+def test_decompose_task_with_mocked_llm(client, mock_llm_generate):
     mock_llm_generate.return_value = DecomposeTaskResponse(
         subtasks=[{"title": "Test Subtask", "description": "Desc"}]
     )

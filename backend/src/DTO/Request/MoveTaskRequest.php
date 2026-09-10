@@ -3,15 +3,18 @@ declare(strict_types=1);
 
 namespace App\DTO\Request;
 
+use App\Enum\TaskStatus;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class MoveTaskRequest
 {
-    #[Assert\NotBlank]
+    #[Assert\NotBlank(message: 'Status is required')]
+    #[Assert\Choice(callback: [TaskStatus::class, 'values'], message: 'Invalid task status. Valid values: {{ choices }}')]
     public readonly string $status;
 
-    #[Assert\NotNull]
+    #[Assert\NotNull(message: 'Position is required')]
+    #[Assert\PositiveOrZero(message: 'Position must be a non-negative integer')]
     public readonly int $position;
 
     private function __construct(string $status, int $position)
@@ -25,7 +28,7 @@ class MoveTaskRequest
         $payload = $request->toArray();
         return new self(
             $payload['status'] ?? '',
-            $payload['position'] ?? 0
+            (int) ($payload['position'] ?? 0)
         );
     }
 }

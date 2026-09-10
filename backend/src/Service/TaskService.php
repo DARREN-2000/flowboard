@@ -74,11 +74,17 @@ class TaskService
         }
         if ($request->status !== null) {
             $status = TaskStatus::tryFrom($request->status);
-            if ($status) $task->setStatus($status);
+            if ($status === null) {
+                throw new \InvalidArgumentException(sprintf('Invalid task status: "%s"', $request->status));
+            }
+            $task->setStatus($status);
         }
         if ($request->priority !== null) {
             $priority = TaskPriority::tryFrom($request->priority);
-            if ($priority) $task->setPriority($priority);
+            if ($priority === null) {
+                throw new \InvalidArgumentException(sprintf('Invalid task priority: "%s"', $request->priority));
+            }
+            $task->setPriority($priority);
         }
         if ($request->assigneeId !== null) {
             $assignee = $this->userRepository->find($request->assigneeId);
@@ -99,13 +105,15 @@ class TaskService
     public function moveTask(Task $task, MoveTaskRequest $request, User $user): Task
     {
         $status = TaskStatus::tryFrom($request->status);
-        if ($status) {
-            $task->setStatus($status);
+        if ($status === null) {
+            throw new \InvalidArgumentException(sprintf('Invalid task status: "%s"', $request->status));
         }
+        $task->setStatus($status);
         
         $task->setPosition($request->position);
         $this->em->flush();
-        
+
+        $this->activityService->logActivity($task->getProject()->getWorkspace(), $user, 'task.moved', ['title' => $task->getTitle(), 'status' => $status->value], $task->getProject(), $task);
         $this->publishTaskUpdate($task);
         
         return $task;

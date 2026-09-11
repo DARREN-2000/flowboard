@@ -34,7 +34,7 @@ services:
     name: flowboard-backend
     runtime: docker
     plan: free
-    region: frankfurt
+
     dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile.render
     healthCheckPath: /api/health
@@ -80,7 +80,7 @@ services:
     name: flowboard-ai
     runtime: docker
     plan: free
-    region: frankfurt
+
     dockerContext: ./ai-service
     dockerfilePath: ./ai-service/Dockerfile
     healthCheckPath: /health
@@ -113,7 +113,7 @@ services:
     name: flowboard-frontend
     env: static
     plan: free
-    region: frankfurt
+
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
@@ -142,4 +142,4 @@ databases:
     plan: free
     databaseName: flowboard
     user: flowboard_user
-    region: frankfurt
+
